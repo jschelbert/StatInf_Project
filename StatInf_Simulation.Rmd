@@ -1,0 +1,133 @@
+---
+title: "Statistical Inference Course Project - Simulating the average of 40 exponential distributed variables"
+author: "Jakob Schelbert"
+date: "30.11.2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+set.seed(1337)
+```
+
+```{r simulation_fuction, echo=FALSE}
+dosim <- function(numsim=1000, lambda=0.2, samplesize=40){
+   datamatrix <- matrix(rexp(samplesize*numsim,lambda), nrow=numsim)
+    df <- data.frame(datamatrix)
+    df_avg <- rowMeans(df) 
+    return(df_avg)
+}
+```
+
+# Synopsis
+This report is intended to show an application of the *central limit theorem*.
+For this we will investigate the distribution of averages of 40 exponentially distributed variables and compare the observed mean and variance with the theoretical.
+Moreover, we will describe the distribution and compare it to the expected normal distribution.
+Throughout the analysis we will set $\lambda=0.2$.
+Most of the **R** code is given in the appendix.
+
+
+# Definition
+A variable $X$ is said to be exponentially distributed $X\sim\mathrm{Exp}(\lambda)$ if it has the density
+\[
+f(x)=\begin{cases}
+\lambda e^{-\lambda x} & x\geq 0\\
+0 & x<0
+\end{cases}.
+\]
+It's mean is given by $1/\lambda$, it's standard deviation is also $1/\lambda$.
+This distribution can for example be used to model lifetime of certain components in a machine or electronic device.
+For more examples see [Wikipedia](https://en.wikipedia.org/wiki/Exponential_distribution).
+
+We are interested in the average of 40 exponentially distributed variables.
+Thus, let us define the variable
+\[
+\bar{X} = \frac{1}{40}\sum_{i=1}^{40} X_i
+\]
+with indepentend identically distributed $X_i\sim\mathrm{Exp}(0.2)$ for $i=1\ldots,40$.
+We do a simulation of 1000 samples (taking the average of 40 samples each) and compute the mean.
+```{r do_simultation}
+lambda <- 0.2
+numsim <- 1000
+samplesize <- 40
+df_avg <- dosim(numsim, lambda, samplesize)
+samplemean <- mean(df_avg)
+```
+This is done using the function *dosim* which is stated in the appendix. 
+It geneates a $1000\times40$ matrix and computes the row mean to obtain a vector of length 1000.
+
+# Mean
+The *central limit theorem* tells us that the observed mean for our simulation should lie close to the theoretical mean of the exponential distribution which is $\mu=1/\lambda$.
+
+```{r, echo=FALSE, fig.cap="Distribution of the simulation with vertical line indicating the sample mean.", fig.height=3.5}
+g <- ggplot(data=data.frame(df_avg), aes(df_avg)) + 
+    geom_histogram(bins=100) + 
+    geom_vline(xintercept=samplemean) + 
+    labs(title="Histogram of 1000 averages of 40 exponentials", x="value")
+g
+```
+
+For our case the theoretical mean is `r 1/lambda`, while the sample mean is `r samplemean`.
+We can clearly see that the distribution is centered around the theoretical mean of `r 1/lambda`.
+
+# Variance
+Using the *central limit theorem* we can expect that the distribution of our variable $\bar{X}$ is gaussian and that the theoretical variance is given by $\sigma^2/n$ where $n$ is the number of samples.
+In our case we use $n=40$.
+```{r, echo=FALSE}
+sample_var <- var(df_avg)
+theo_var <- (1/lambda^2)/40
+```
+The observed variance is `r sample_var`, while the theoretical variance is `r theo_var`.
+If we would increase the number of simulations we might observe an even better fit.
+
+# Comparison to normal distribution
+We know from the *central limit theorem* that the distribution of iid variables becomes that of a standard normal variable as the sample size increases.
+This can clearly be observed as we compare the distribution of 1000 exponential distributed variables which can be seen in Figure \ref{fig:plot}.
+
+```{r, echo=FALSE, fig.cap="Comparison between 1000 average of 40 samples and 1000 exponentially distributed samples. Histograms and density of simulated samples are shown, as well as theoretic density in red.\\label{fig:plot}"}
+g0 <- ggplot(data=data.frame(df_avg), aes(df_avg))
+g1 <- g0  + 
+    geom_histogram(bins=100) + 
+    geom_vline(xintercept=samplemean) + 
+    labs(title="Histogram of 1000 averages of 40 exponentials", x="value")
+g2 <- g0+ 
+    geom_density() + 
+    geom_vline(xintercept=samplemean) + 
+    labs(title="Density of 1000 averages of 40 exponentials", x="value") +
+    stat_function(fun = dnorm, colour = "red", alpha=0.5, 
+                  args = list(mean = 1/lambda, sd=(1/lambda)/sqrt(40)))
+
+X <- rexp(1000, lambda)
+g0exp <- ggplot(data=data.frame(X), aes(X))
+g3 <- g0exp +
+    geom_histogram(bins = 100) +
+    geom_vline(xintercept = 1 / lambda) +
+    labs(title = "Histogram of 1000 exponentially distributed variables", x = "value")
+g4 <- g0exp +
+    geom_density() +
+    geom_vline(xintercept = 1 / lambda) +
+    labs(title = "Density of 1000 exponentially distributed variables", x = "value") +
+    stat_function(fun = dexp, colour = "red", alpha=0.5, args = list(rate = lambda))
+    grid.arrange(g1, g3, g2, g4, ncol = 2, nrow = 2)
+```
+
+For the exponentially distributed samples the majority of the variables are centered in the interval $[0,5]$, whereas the number of observations quickly fades out as the value increases.
+The density mentioned above which involves the exponential function is clearly visible in the plot.
+
+The average of 40 samples clearly look like a gaussian distributed variable which also corresponds to the histogram and density.
+The observations are centered arounf the mean (`r 1/lambda`) and the shape of the histogram (and density respectively) looks gaussian.
+
+# Final remarks
+As we have shown in our quick simulation the distribution of the average of 40 exponentially distributed samples behaves as expected by the *central limit theorem*.
+If we would increase the number of simulations, we would observe an even more gaussian shape of the histogram and density.
+The code provided in the appendix can be used by the kind reader to experiment and do simulations with more samples.
+
+\pagebreak
+
+# Appendix
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```

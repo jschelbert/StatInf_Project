@@ -1,0 +1,55 @@
+---
+title: "Statistical Inference Course Project - Analysis of *tooth growth* data"
+author: "Jakob Schelbert"
+date: "2.12.2016"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(datasets)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+set.seed(1337)
+```
+
+
+```{r dataloading, echo=FALSE}
+# loading the data
+toothdata <- ToothGrowth
+```
+
+# Synopsis
+This report analyzes the **tooth growth** data which contains data obtained from measuring the tooth growth of guinea pigs.
+Two different supplements each with three different doses are included in the data set.
+
+
+# Data description
+The response is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs. Each animal received one of three dose levels of vitamin C (0.5, 1, and 2 mg/day) by one of two delivery methods, (orange juice or ascorbic acid (a form of vitamin C and coded as VC). (taken from help page of *ToothGrowth*)
+
+[,1]	 len	 numeric	 Tooth length
+[,2]	 supp	 factor	 Supplement type (VC or OJ).
+[,3]	 dose	 numeric	 Dose in milligrams/day
+
+
+
+```{r expl_analysis}
+toothsum <- summary(toothdata)
+toothdata %>% group_by(dose, supp) %>% summarize(n=n(), min=min(len), mean = mean(len), median = median(len), max=max(len), sd = sd(len))
+g <- ggplot(data = toothdata, aes(x = supp, y = len))
+g + geom_boxplot() + geom_jitter(width = 0.1) + facet_grid(. ~ dose)
+
+g <- ggplot(data = toothdata, aes(x = len))
+g + geom_histogram(bins = 5) + facet_grid(dose ~ supp)
+
+```
+
+
+
+
+
+# Appendix
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+```
