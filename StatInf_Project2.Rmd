@@ -1,17 +1,20 @@
 ---
-title: "Statistical Inference Course Project - Analysis of *tooth growth* data"
+title: "Statistical Inference Course Project -- Analysis of the *tooth growth* data"
 author: "Jakob Schelbert"
 date: "2.12.2016"
 output: pdf_document
 ---
 
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
+options(scipen = 1, digits = 3)
 library(datasets)
 library(dplyr)
 library(ggplot2)
 library(knitr)
+library(pastecs)
 set.seed(1337)
 ```
 
@@ -22,34 +25,144 @@ toothdata <- ToothGrowth
 ```
 
 # Synopsis
-This report analyzes the **tooth growth** data which contains data obtained from measuring the tooth growth of guinea pigs.
+This report analyzes the **tooth growth** data which contains 60 samples obtained from measuring the tooth growth of guinea pigs under the effect of vitamin C.
 Two different supplements each with three different doses are included in the data set.
-
+We investigate which supplement and doses perform best using statistical tests.
+The used **R** code is stated in the appendix.
 
 # Data description
-The response is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs. Each animal received one of three dose levels of vitamin C (0.5, 1, and 2 mg/day) by one of two delivery methods, (orange juice or ascorbic acid (a form of vitamin C and coded as VC). (taken from help page of *ToothGrowth*)
+The following text is taken from help page of *ToothGrowth*:
 
-[,1]	 len	 numeric	 Tooth length
-[,2]	 supp	 factor	 Supplement type (VC or OJ).
-[,3]	 dose	 numeric	 Dose in milligrams/day
+> The response is the length of odontoblasts (cells responsible for tooth growth) in 60 guinea pigs. Each animal received one of three dose levels of vitamin C (0.5, 1, and 2 mg/day) by one of two delivery methods, (orange juice or ascorbic acid (a form of vitamin C and coded as VC)).
+
+The data frame has 60 rows and consists of three columns:
+
+- **len** indicating the tooth length
+- **supp** specifying the used supplement
+- **dose** contains the dose in milligrams/day
 
 
+# Exploratory analysis
+If we take a closer look at the data we can observe, that there are 10 observations for each combination of dose and supplement.
+The following table states some basic data for each combination.
+```{r expl_analysis, echo=FALSE}
+tooth_sum1 <- summary(toothdata)
+tooth_sum2 <-
+  toothdata %>% group_by(dose, supp) %>% summarize(
+    n = n(),
+    min = min(len),
+    mean = mean(len),
+    median = median(len),
+    max = max(len),
+    sd = sd(len)
+  )
+kable(tooth_sum2)
+```
 
-```{r expl_analysis}
-toothsum <- summary(toothdata)
-toothdata %>% group_by(dose, supp) %>% summarize(n=n(), min=min(len), mean = mean(len), median = median(len), max=max(len), sd = sd(len))
+We can observe that with higher dose also the mean length increases.
+In addition, we can suspect that supplement *orange juice (OJ)* in general leads to larger tooth length compared to *ascorbic acid (VC)*.
+The following box plot provides a visual representation of the relationships.
+```{r expl_analysis_graph1, echo=FALSE}
 g <- ggplot(data = toothdata, aes(x = supp, y = len))
-g + geom_boxplot() + geom_jitter(width = 0.1) + facet_grid(. ~ dose)
-
-g <- ggplot(data = toothdata, aes(x = len))
-g + geom_histogram(bins = 5) + facet_grid(dose ~ supp)
-
+g + geom_boxplot() + geom_jitter(width = 0.1) + facet_grid(. ~ dose) + 
+  labs(x="Supplement", y="Length", title="Boxplot of the tooth growths data")
 ```
 
 
+# Hypothesis testing
+Since we want to test our hypothesis we employ statistical testing methods in the next section.
+The data is assumed to be normally distributed.
+
+## Dose
+We suspect that higher doses yield higher lengths, i.e. higher tooth growth.
+For this test we do not distinguish between the two supplements, but just compare the doses.
+The null hypothesis $H_0$ states that the means of dose A is equal to dose B.
+We use *R*'s `t.test` function to perform a *Welch two sample t-test* (using standard settings for non-paired observations and non-pooled variance).
+```{r dose1, echo=FALSE}
+tooth_dose0.5_1.0 <- toothdata %>% filter(dose %in% c(0.5, 1.0))
+tooth_dose1.0_2.0 <- toothdata %>% filter(dose %in% c(1.0, 2.0))
+test_0.5_1.0 <- t.test(len ~ dose , tooth_dose0.5_1.0)
+test_1.0_2.0 <- t.test(len ~ dose , tooth_dose1.0_2.0)
+```
+
+### Comparing dose of 0.5 and 1.0
+When comparing the doses of 0.5 and 1.0, the t-test reports a p-value of $`r test_0.5_1.0$p.value`$.
+The 95% confidence interval is given by $[`r test_0.5_1.0$conf.int`]$ which is clearly away from zero.
+We can conclude with a confidence of 95% that the dose of 1.0 gives higher tooth growth.
+
+### Comparing dose of 1.0 and 2.0
+When comparing the doses of 1.0 and 2.0, the t-test reports a p-value of $`r test_1.0_2.0$p.value`$.
+The 95% confidence interval is given by $[`r test_1.0_2.0$conf.int`]$ which is clearly away from zero.
+We can conclude with a confidence of 95% that the dose of 1.0 gives higher tooth growth.
+By transitive relation this also concludes that dose 2.0 gives higher tooth growth compared to 0.5.
 
 
+## Supplement
+```{r supplements, echo=FALSE}
+test_supp <- t.test(len ~ supp, paired=FALSE, data=toothdata)
+dose0.5 <- toothdata %>% filter(dose==0.5)
+dose1.0 <- toothdata %>% filter(dose==1.0)
+dose2.0 <- toothdata %>% filter(dose==2.0)
+test_supp_0.5 <- t.test(len ~ supp, paired=FALSE, data=dose0.5)
+test_supp_1.0 <- t.test(len ~ supp, paired=FALSE, data=dose1.0)
+test_supp_2.0 <- t.test(len ~ supp, paired=FALSE, data=dose2.0)
+```
+
+### No differentiation between doses
+When comparing the two supplements without differntiating between doses no clear evidence if found. 
+The p-value for the t-test is $`r test_supp$p.value`$ and the 95% confidence interval given by $[`r test_supp$conf.int`]$ contains zero.
+Thus, we cannot reject the null hypothesis with a 95% confidence, however the p-value tells us that we can assume with 90% confidence that orange juice leads to higher teeth growth (90% confidence intervall is given by  $[`r t.test(len ~ supp, paired=FALSE, data=toothdata, conf.level=.9)$conf.int`]$)
+
+### Accounting for different doses
+When the doses are also incorporated, we obtain a differnt picure.
+Here we compare the two supplements for one specific dose.
+This results in the following observations.
+
+* For the 0.5 dose we have a p-value of $`r test_supp_0.5$p.value`$ and a 95% confidence interval of $[`r test_supp_0.5$conf.int`]$. This means it is very likely that orange juice performs better than ascorbic acid.
+* For the 1.0 dose we have a p-value of $`r test_supp_1.0$p.value`$ and a 95% confidence interval of $[`r test_supp_1.0$conf.int`]$. This means that it is also very likely that orange juice performs better than ascorbic acid for this dose.
+* For the 2.0 dose we have a p-value of $`r test_supp_2.0$p.value`$ and a 95% confidence interval of $[`r test_supp_2.0$conf.int`]$. Here the null hypothesis cannot be rejected and thus no statistically significance between OJ and VC was observed.
+
+
+# Conclusion
+We analyzed the *tooth growth* data set and showed some statistically significances between doses and supplements.
+While it can be shown that there is strong evidence that higher doses lead to higher growth, a differentiation between supplements was statistically significant only for the doses of 0.5 and 1.0.
+At the dose of 2.0 no distinction between supplements can be shown.
+When not accounting for the dose, we have found a p-value of $`r test_supp$p.value`$ that supplement OJ leads to more growth.
+
+\pagebreak
 
 # Appendix
-```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE}
+## Note on normality assumption
+One core assumption of the t-test is that the data is normally distributed.
+We can check whether the provided data by using the `stat.desc` function from the `pastecs` package.
+```{r norm_test, echo=FALSE}
+norm_test <- data.frame()
+for (d in c(0.5, 1.0, 2.0)) {
+  for (s in c("OJ", "VC")) {
+    test_data <- toothdata %>% filter(dose == d, supp == s) %>% select(len) %>% t() %>% shapiro.test()
+    norm_test <- rbind(norm_test, cbind(d, s, p.value=test_data$p.value, statistic=test_data$statistic))
+  }
+  test_data <- toothdata %>% filter(dose == d) %>% select(len) %>% t() %>% shapiro.test()
+  norm_test <- rbind(norm_test, cbind(d, s="ALL", p.value=test_data$p.value, statistic=test_data$statistic))
+}
+for (s in c("OJ", "VC")) {
+  test_data <- toothdata %>% filter(supp == s) %>% select(len) %>% t() %>% shapiro.test()
+  norm_test <- rbind(norm_test, cbind(d="ALL", s, p.value=test_data$p.value, statistic=test_data$statistic))
+}
+test_data <- toothdata %>% select(len) %>% t() %>% shapiro.test()
+norm_test <- rbind(norm_test, cbind(d="ALL", s="ALL", p.value=test_data$p.value, statistic=test_data$statistic))
+```
+It provides the *Shapiro–Wilk test* which has the null hypothesis that the data is normally distributed.
+Applying the evidence we find p-values that are not significant to reject the null hypothesis, thus we can assume that the data is normally distributed.
+The following table shows the values for the combinations of supplement and dose.
+```{r norm_table, echo=FALSE}
+kable(norm_test)
+```
+
+We see that only the data for orange juice give statistical evidence to reject the null hypothesis.
+Thus we have to assume it is NOT normally distributed and the statements above have to be carefully reviewed in this light.
+
+
+## Code
+```{r, ref.label=knitr::all_labels(),echo=TRUE,eval=FALSE, tidy=TRUE}
 ```
